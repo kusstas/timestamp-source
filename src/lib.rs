@@ -13,7 +13,7 @@ pub trait Timestamp {
 
     /// Get duration since `other`.
     /// # Errors
-    /// This function will return an error if duration between from-to timestamps is negative.
+    /// This function will return an error if duration between other-self timestamps is negative.
     fn duration_since(&self, other: &Self) -> Result<Self::Duration, Self::Error>;
 }
 
@@ -30,4 +30,38 @@ pub trait ElapsedTimer {
         from: &Self::Timestamp,
         to: &Self::Timestamp,
     ) -> Result<bool, <Self::Timestamp as Timestamp>::Error>;
+}
+
+/// Implementation of [`ElapsedTimer`](crate::ElapsedTimer)
+pub struct Timer<T: Timestamp> {
+    duration: T::Duration,
+}
+
+impl<T: Timestamp> Timer<T> {
+    /// Creates a new [`Timer<T>`].
+    pub const fn new(duration: T::Duration) -> Self {
+        Timer { duration }
+    }
+
+    /// Borrow the duration of this [`Timer<T>`].
+    pub fn borrow_duration(&self) -> &T::Duration {
+        &self.duration
+    }
+
+    /// Borrow mutable the duration of this [`Timer<T>`].
+    pub fn borrow_mut_duration(&mut self) -> &mut T::Duration {
+        &mut self.duration
+    }
+}
+
+impl<T: Timestamp> ElapsedTimer for Timer<T> {
+    type Timestamp = T;
+
+    fn is_timeout(
+        &self,
+        from: &Self::Timestamp,
+        to: &Self::Timestamp,
+    ) -> Result<bool, <Self::Timestamp as Timestamp>::Error> {
+        Ok(to.duration_since(from)? >= self.duration)
+    }
 }
