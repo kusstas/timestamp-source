@@ -1,5 +1,7 @@
 //! Timestamp source library provides simple traits for handling timestamps.
 
+#![no_std]
+
 /// Represents a timestamp.
 pub trait Timestamp {
     type Duration: PartialOrd;

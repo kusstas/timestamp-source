@@ -13,7 +13,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-timestamp-source = "0.1.1"
+timestamp-source = "0.1.2"
 ```
 
 ## Documentation
