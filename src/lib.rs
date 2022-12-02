@@ -2,6 +2,9 @@
 
 #![no_std]
 
+use core::marker::PhantomData;
+use spin::relax::{RelaxStrategy, Spin};
+
 /// Represents a timestamp.
 pub trait Timestamp {
     type Duration: PartialOrd;
@@ -27,7 +30,7 @@ pub trait ElapsedTimer {
     /// otherwise false.
     /// # Errors
     /// This function will return an error if duration between from-to timestamps is negative.
-    fn is_timeout(
+    fn timeout(
         &self,
         from: &Self::Timestamp,
         to: &Self::Timestamp,
@@ -50,7 +53,7 @@ impl<T: Timestamp> Timer<T> {
         &self.duration
     }
 
-    /// Borrow mutable the duration of this [`Timer<T>`].
+    /// Borrow the mutable duration of this [`Timer<T>`].
     pub fn borrow_mut_duration(&mut self) -> &mut T::Duration {
         &mut self.duration
     }
@@ -59,11 +62,54 @@ impl<T: Timestamp> Timer<T> {
 impl<T: Timestamp> ElapsedTimer for Timer<T> {
     type Timestamp = T;
 
-    fn is_timeout(
+    fn timeout(
         &self,
         from: &Self::Timestamp,
         to: &Self::Timestamp,
     ) -> Result<bool, <Self::Timestamp as Timestamp>::Error> {
         Ok(to.duration_since(from)? >= self.duration)
+    }
+}
+
+/// Object that can delay by some duration.
+///
+/// `T` - [`Timestamp`] that provides `now`.
+///
+/// `R` - [`RelaxStrategy`] that provides a strategy to handle an idle.
+pub struct Delay<T: Timestamp, R: RelaxStrategy = Spin> {
+    duration: T::Duration,
+    relax: PhantomData<R>,
+}
+
+impl<T: Timestamp, R: RelaxStrategy> Delay<T, R> {
+    /// Creates a new [`Delay<T, R>`].
+    pub const fn new(duration: T::Duration) -> Self {
+        Delay {
+            duration,
+            relax: PhantomData::<R>,
+        }
+    }
+
+    /// Borrow the duration of this [`Delay<T, R>`].
+    pub fn borrow_duration(&self) -> &T::Duration {
+        &self.duration
+    }
+
+    /// Borrow the mutable duration of this [`Delay<T, R>`].
+    pub fn borrow_mut_duration(&mut self) -> &mut T::Duration {
+        &mut self.duration
+    }
+
+    /// Execute delay.
+    /// # Errors
+    /// This function will return an error if [`Timestamp::duration_since`] returns an error.
+    pub fn exec(&self) -> Result<(), T::Error> {
+        let start = T::now();
+
+        while T::now().duration_since(&start)? < self.duration {
+            R::relax();
+        }
+
+        Ok(())
     }
 }
